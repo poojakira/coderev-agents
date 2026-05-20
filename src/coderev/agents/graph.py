@@ -1,4 +1,9 @@
-"""LangGraph state machine for multi-agent code review."""
+"""LangGraph state machine for multi-agent code review.
+
+The graph uses conditional fan-out from the orchestrator: agents run in parallel
+based on routing decisions. LangGraph's built-in fan-in ensures the summarizer
+only executes after ALL routed agents complete (skipped agents don't block).
+"""
 
 from typing import TypedDict
 
@@ -11,6 +16,8 @@ from coderev.agents.nodes import (
     complexity_node,
     summarizer_node,
 )
+
+_compiled_graph = None
 
 
 class ReviewState(TypedDict):
@@ -41,17 +48,14 @@ def build_graph() -> StateGraph:
     """Construct the multi-agent review graph."""
     graph = StateGraph(ReviewState)
 
-    # Add nodes
     graph.add_node("orchestrator", orchestrator_node)
     graph.add_node("security_agent", security_node)
     graph.add_node("style_agent", style_node)
     graph.add_node("complexity_agent", complexity_node)
     graph.add_node("summarizer", summarizer_node)
 
-    # Entry point
     graph.set_entry_point("orchestrator")
 
-    # Conditional fan-out from orchestrator
     graph.add_conditional_edges(
         "orchestrator",
         route_after_orchestrator,
@@ -62,17 +66,17 @@ def build_graph() -> StateGraph:
         },
     )
 
-    # All agents converge to summarizer
     graph.add_edge("security_agent", "summarizer")
     graph.add_edge("style_agent", "summarizer")
     graph.add_edge("complexity_agent", "summarizer")
-
-    # Summarizer ends
     graph.add_edge("summarizer", END)
 
     return graph
 
 
 def compile_graph():
-    """Compile the graph for execution."""
-    return build_graph().compile()
+    """Compile and cache the graph (singleton — graph is stateless, state is per-invocation)."""
+    global _compiled_graph
+    if _compiled_graph is None:
+        _compiled_graph = build_graph().compile()
+    return _compiled_graph
