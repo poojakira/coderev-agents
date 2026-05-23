@@ -32,6 +32,9 @@ class ReviewResponse(BaseModel):
     style_review: str
     complexity_review: str
     agents_invoked: list[str]
+    diff_sha256: str = ""
+    diff_truncated: bool = False
+    trust_findings: list[str] = Field(default_factory=list)
 
 
 @app.post("/v1/review", response_model=ReviewResponse)
@@ -47,6 +50,9 @@ async def review_code(request: ReviewRequest) -> ReviewResponse:
         "complexity_review": "",
         "run_security": True,
         "run_complexity": True,
+        "diff_sha256": "",
+        "diff_truncated": False,
+        "trust_findings": [],
         "summary": "",
     }
 
@@ -67,6 +73,9 @@ async def review_code(request: ReviewRequest) -> ReviewResponse:
         style_review=result.get("style_review", ""),
         complexity_review=result.get("complexity_review", ""),
         agents_invoked=agents,
+        diff_sha256=result.get("diff_sha256", ""),
+        diff_truncated=result.get("diff_truncated", False),
+        trust_findings=result.get("trust_findings", []),
     )
 
 

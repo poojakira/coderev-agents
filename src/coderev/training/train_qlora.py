@@ -72,7 +72,15 @@ def train():
         r=TRAIN_CONFIG["lora_r"],
         lora_alpha=TRAIN_CONFIG["lora_alpha"],
         lora_dropout=TRAIN_CONFIG["lora_dropout"],
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        target_modules=[
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ],
         bias="none",
         use_gradient_checkpointing="unsloth",
     )

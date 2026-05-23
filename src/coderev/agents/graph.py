@@ -30,6 +30,9 @@ class ReviewState(TypedDict):
     # Routing decisions
     run_security: bool
     run_complexity: bool
+    diff_sha256: str
+    diff_truncated: bool
+    trust_findings: list[str]
     # Final
     summary: str
 

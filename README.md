@@ -1,126 +1,71 @@
-# CodeRev Agents — Multi-Agent Code Review with Fine-tuned LLM
+# CodeRev Agents
 
-[![CI](https://github.com/poojakira/coderev-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/poojakira/coderev-agents/actions)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
-[![W&B](https://img.shields.io/badge/W%26B-Experiments-yellow)](https://wandb.ai/poojakira/coderev-agents)
+Multi-agent code review prototype with LangGraph orchestration and explicit prompt-injection trust boundaries for untrusted diffs.
 
-Multi-agent code review system powered by a fine-tuned CodeLlama-7B and LangGraph orchestration. Specialized agents analyze security, style, and complexity in parallel.
+This repository is not presented as a trained model benchmark. Training and quantization scripts are included as reproducible scaffolding, but no quality, F1, speed, VRAM, or W&B metrics are claimed unless backed by published artifacts.
 
-**[HuggingFace Model](https://huggingface.co/poojakira/coderev-codellama-7b-lora)** · **[Live Demo](https://huggingface.co/spaces/poojakira/coderev-demo)** · **[W&B Experiments](https://wandb.ai/poojakira/coderev-agents)**
+## Security Architecture
 
----
-
-## Architecture
-
-```
-                    ┌─────────────────┐
-                    │  Orchestrator   │
-                    │ (route by diff) │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-     ┌────────▼───┐  ┌──────▼─────┐  ┌────▼────────┐
-     │  Security  │  │   Style    │  │ Complexity  │
-     │   Agent    │  │   Agent    │  │   Agent     │
-     └────────┬───┘  └──────┬─────┘  └────┬────────┘
-              │              │              │
-              └──────────────┼──────────────┘
-                             │
-                    ┌────────▼────────┐
-                    │   Summarizer    │
-                    │ (prioritized)   │
-                    └─────────────────┘
+```mermaid
+flowchart LR
+  A[Untrusted git diff] --> B[Trust boundary]
+  B --> C[SHA-256 digest]
+  B --> D[Line-numbered inert rendering]
+  B --> E[Prompt-injection marker scan]
+  B --> F[Security-sensitive diff routing]
+  E --> G{Security agent required?}
+  F --> G
+  G --> H[Security reviewer]
+  B --> I[Style reviewer]
+  B --> J[Complexity reviewer]
+  H --> K[Summarizer]
+  I --> K
+  J --> K
 ```
 
-**Conditional routing:** Orchestrator skips security scan for trivial diffs (<10 lines) and complexity analysis for short changes (<20 lines). Style always runs.
+## Implemented Controls
 
-## Model Performance
-
-| Metric | Base CodeLlama-7B | Fine-tuned (QLoRA r=32) | AWQ-4bit |
-|--------|-------------------|-------------------------|----------|
-| Review Quality (LLM-judge, 1-5) | 2.8 | 4.2 | 4.1 |
-| Security Issue Detection (F1) | 0.41 | 0.73 | 0.71 |
-| Perplexity (test set) | 8.4 | 5.1 | 5.3 |
-| Inference Speed (tok/s, A10G) | 45 | 45 | 112 |
-| VRAM Usage | 14GB | 14GB | 4.2GB |
-
-## Quantization Comparison
-
-| Method | Size | Quantize Time | Perplexity | Tokens/sec |
-|--------|------|---------------|------------|------------|
-| FP16 (baseline) | 13.5 GB | — | 5.1 | 45 |
-| AWQ 4-bit | 4.1 GB | 8 min | 5.3 | 112 |
-| GPTQ 4-bit | 4.0 GB | 25 min | 5.4 | 98 |
-| GGUF Q4_K_M | 4.3 GB | 3 min | 5.5 | 85 |
+| Control | Implementation |
+|---|---|
+| Untrusted diff isolation | `build_diff_envelope()` wraps the diff with hash, truncation flag, and line-numbered `BEGIN_UNTRUSTED_DIFF` / `END_UNTRUSTED_DIFF` boundaries |
+| Prompt-injection detection | Detects obvious role/system-instruction attempts embedded in code comments or strings |
+| Security routing | Small diffs still route to security review if they touch auth, JWT, secrets, deserialization, subprocess, SQL, SSRF, paths, or prompt-injection markers |
+| Prompt hardening | Reviewer system prompts explicitly treat diff text as untrusted data, not instructions |
+| Summarizer hardening | Aggregated agent outputs are treated as untrusted analysis and cannot suppress findings |
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/poojakira/coderev-agents.git
-cd coderev-agents
-pip install -e .
-
-# Set API key (uses OpenAI-compatible API for agents)
-export CODEREV_LLM_API_KEY=sk-your-key
-
-# Run API
-uvicorn coderev.api.main:app --reload
-
-# Submit a review
-curl -X POST http://localhost:8000/v1/review \
-  -H "Content-Type: application/json" \
-  -d '{"diff": "- password = input()\n+ password = hashlib.sha256(input().encode()).hexdigest()"}'
+pip install -e ".[dev]"
+python -m pytest tests -q
+ruff check src tests
 ```
 
-## Training
+To run live LLM-backed review:
 
 ```bash
-# Install training dependencies
-pip install -e ".[train]"
-
-# Fine-tune (requires GPU — A100 recommended)
-python -m coderev.training.train_qlora
-
-# Quantize
-pip install -e ".[quantize]"
-python -m coderev.training.quantize ./outputs/qlora-r32/merged
-
-# Publish to HuggingFace
-python scripts/publish_hf.py
+export CODEREV_LLM_API_KEY=sk-your-key
+uvicorn coderev.api.main:app --reload
 ```
+
+## Boundary
+
+This is an agentic code-review security prototype. It does not prove review quality, model training quality, or production readiness. Missing production controls include persistent job storage, human approval workflow, audit logging, GitHub App permissions, sandboxed tool execution, and calibrated reviewer benchmarks.
 
 ## Project Structure
 
+```text
+src/coderev/
+  agents/
+    graph.py            # LangGraph StateGraph routing
+    nodes.py            # Reviewer nodes with trust-boundary prompts
+    trust_boundary.py   # Diff hashing, rendering, injection markers, security routing
+  api/main.py           # FastAPI review endpoint
+  training/             # Optional QLoRA/quantization scaffolding
+tests/
+  test_graph.py
+  test_trust_boundary.py
 ```
-coderev-agents/
-├── src/coderev/
-│   ├── agents/
-│   │   ├── graph.py          # LangGraph StateGraph with conditional routing
-│   │   └── nodes.py          # Agent implementations (security, style, complexity)
-│   ├── training/
-│   │   ├── train_qlora.py    # Unsloth + TRL fine-tuning with W&B
-│   │   └── quantize.py       # AWQ/GPTQ/GGUF comparison pipeline
-│   ├── api/
-│   │   └── main.py           # FastAPI serving endpoint
-│   └── config.py             # Pydantic settings
-├── configs/
-│   ├── train_qlora.yaml      # Training hyperparameters
-│   └── sweep.yaml            # W&B hyperparameter sweep
-├── scripts/
-│   └── publish_hf.py         # HuggingFace Hub publishing
-└── tests/
-    └── test_graph.py         # Routing and orchestration tests
-```
-
-## Training Details
-
-- **Base model:** CodeLlama-7B-Instruct
-- **Method:** QLoRA (r=32, α=64, dropout=0.05)
-- **Dataset:** JetBrains/code-review (87K examples after filtering)
-- **Hardware:** 1x A100-40GB, 4.2 hours
-- **Optimizer:** AdamW, cosine LR schedule
-- **Final train loss:** 0.847
 
 ## License
 

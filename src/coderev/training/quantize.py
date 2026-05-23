@@ -64,8 +64,16 @@ def quantize_gguf(model_path: str, output_dir: str) -> dict:
 
     # Uses llama.cpp convert script
     subprocess.run(
-        ["python", "-m", "llama_cpp.convert", model_path, "--outfile", str(output_file),
-         "--outtype", "q4_k_m"],
+        [
+            "python",
+            "-m",
+            "llama_cpp.convert",
+            model_path,
+            "--outfile",
+            str(output_file),
+            "--outtype",
+            "q4_k_m",
+        ],
         check=True,
     )
 
@@ -130,5 +138,6 @@ def run_comparison(merged_model_path: str, output_dir: str = "./outputs/quantize
 
 if __name__ == "__main__":
     import sys
+
     model_path = sys.argv[1] if len(sys.argv) > 1 else "./outputs/qlora-r32/merged"
     run_comparison(model_path)
