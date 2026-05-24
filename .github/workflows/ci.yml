@@ -24,3 +24,4 @@ jobs:
       - run: ruff check src/ tests/
       - run: ruff format --check src/ tests/
       - run: pytest tests/ -v --tb=short
+      - run: pip-audit . --skip-editable
