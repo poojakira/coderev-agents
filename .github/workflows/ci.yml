@@ -1,4 +1,6 @@
 name: CI
+# Fix A3-001: Full security pipeline — lint, tests, SAST, secret detection,
+# dep audit, SBOM generation, and Garak red-teaming.
 on:
   push:
     branches: [main]
@@ -6,21 +8,142 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: read   # minimal — no write access to repo contents
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
+  # ── Gate 1: lint ─────────────────────────────────────────────────────────
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
+      - run: pip install ruff==0.8.4
       - run: ruff check src/ tests/
       - run: ruff format --check src/ tests/
+
+  # ── Gate 2: unit + adversarial tests ────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      # Run all tests including the adversarial suite (test_adversarial.py)
+      # CODEREV_LLM_API_KEY is intentionally absent — adversarial tests are
+      # trust-boundary-only and do not invoke the LLM.
       - run: pytest tests/ -v --tb=short
+
+  # ── Gate 3: SAST — Bandit ────────────────────────────────────────────────
+  sast-bandit:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "bandit[toml]==1.7.10"
+      # -ll = HIGH+ severity, -ii = MEDIUM+ confidence. Exits non-zero on any finding.
+      - run: bandit -r src/ -ll -ii
+
+  # ── Gate 4: SAST — Semgrep ───────────────────────────────────────────────
+  sast-semgrep:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install semgrep==1.90.0
+      # python security + secrets rulesets. --error exits non-zero on any finding.
+      - run: semgrep scan --config=p/python --config=p/secrets --error src/
+
+  # ── Gate 5: secret detection — gitleaks ──────────────────────────────────
+  secrets:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # full history required for gitleaks scan
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Gate 6: dependency audit ──────────────────────────────────────────────
+  dep-audit:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pip-audit==2.7.3
+      - run: pip install -e ".[dev]"
+      # Fails if any installed package has a known CVE. Satisfies GATE-3.
+      - run: pip-audit --strict
+
+  # ── Gate 7: SBOM generation and archival ─────────────────────────────────
+  sbom:
+    runs-on: ubuntu-latest
+    needs: [test, sast-bandit, sast-semgrep, secrets, dep-audit]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "cyclonedx-bom==4.5.0"
+      - run: pip install -e ".[dev]"
+      - run: cyclonedx-py environment -o sbom.json --format JSON
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.json
+          retention-days: 90
+
+  # ── Gate 8: Garak adversarial red-teaming ────────────────────────────────
+  # Requires CODEREV_LLM_API_KEY set as a GitHub Actions Secret.
+  # Job is skipped when the secret is absent so it does not block PRs from
+  # forks or contributors without API access. Enable enforcement once the
+  # secret is provisioned in repo settings.
+  redteam:
+    runs-on: ubuntu-latest
+    needs: test
+    # Skip gracefully when key is not available
+    if: ${{ secrets.CODEREV_LLM_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "garak==0.9.0.post1"
+      - run: pip install -e ".[dev]"
+      - name: Run Garak prompt injection probes
+        env:
+          CODEREV_LLM_API_KEY: ${{ secrets.CODEREV_LLM_API_KEY }}
+        # promptinject covers AML.T0051. knownbadsignatures covers known jailbreaks.
+        # --parallel 1 avoids rate-limit exhaustion on CI.
+        run: |
+          garak \
+            --model_type openai \
+            --model_name gpt-4o-mini \
+            --probes promptinject,knownbadsignatures \
+            --parallel 1 \
+            --report_prefix garak_report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: garak-report-${{ github.sha }}
+          path: garak_report*.json
+          retention-days: 30

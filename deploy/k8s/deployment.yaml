@@ -1,0 +1,84 @@
+# Fix A3-ABSENT-002: Kubernetes deployment with resource limits, securityContext,
+# liveness/readiness probes, and non-root enforcement.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coderev-agents
+  labels:
+    app: coderev-agents
+    version: "0.3.2"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: coderev-agents
+  template:
+    metadata:
+      labels:
+        app: coderev-agents
+      annotations:
+        # Prometheus scrape config — targets /metrics endpoint added in api/main.py
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: coderev-agents
+          # CD pipeline must pin this to an image digest, not a tag, before prod deploy.
+          image: ghcr.io/poojakira/coderev-agents:0.3.2
+          ports:
+            - containerPort: 8000
+          env:
+            - name: CODEREV_ENV
+              value: "production"
+            - name: CODEREV_LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: coderev-secrets
+                  key: llm-api-key
+            - name: CODEREV_API_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: coderev-secrets
+                  key: api-secret-key
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp  # uvicorn needs /tmp writable with readOnlyRootFilesystem
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      # Agent does not need K8s API access
+      automountServiceAccountToken: false
