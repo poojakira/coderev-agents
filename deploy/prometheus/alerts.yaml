@@ -1,0 +1,60 @@
+# Fix A3-ABSENT-004: Prometheus alerting rules for coderev-agents.
+# Load this file into your Prometheus instance via the rule_files config.
+groups:
+  - name: coderev_agents
+    rules:
+      # Error rate > 1% over 5-minute window — GATE-5 threshold [D]
+      - alert: HighErrorRate
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m])
+          / rate(http_requests_total[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "coderev error rate {{ $value | humanizePercentage }} > 1%"
+          runbook: "Check server logs. Common causes: LLM API key expiry, upstream timeout."
+
+      # P99 latency > 30s (matches Settings.timeout_seconds) [D]
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            rate(http_request_duration_seconds_bucket{handler="/v1/review"}[5m])
+          ) > 30
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P99 latency {{ $value }}s exceeds 30s SLA"
+          runbook: "Check LLM upstream latency. Consider reducing max_diff_lines."
+
+      # Prompt injection spike — > 5 detections/min is anomalous [D: 5/min = 300/hr,
+      # far above any legitimate code review load; adjust after measuring baseline]
+      - alert: InjectionAttemptSpike
+        expr: rate(coderev_trust_findings_total[1m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prompt injection attempts at {{ $value }}/min"
+          runbook: "Possible coordinated attack. Review /v1/review access logs."
+
+      # Rate limit exhaustion — > 50 429s/min indicates abuse [D]
+      - alert: RateLimitExhaustion
+        expr: rate(http_requests_total{status="429"}[1m]) > 50
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limit rejections: {{ $value }}/min"
+          runbook: "Check for abusive clients. Consider IP blocking at ingress."
+
+      # No requests for 10 minutes — possible service outage
+      - alert: NoIncomingRequests
+        expr: rate(http_requests_total{handler="/v1/review"}[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No review requests in the last 10 minutes"
+          runbook: "Verify service is reachable. Check readiness probe status."

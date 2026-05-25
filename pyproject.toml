@@ -1,12 +1,12 @@
 [project]
 name = "coderev-agents"
-version = "0.3.1"
+version = "0.3.2"
 description = "Multi-agent code review system with fine-tuned CodeLlama and LangGraph orchestration"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors = [{name = "Pooja Kiran", email = "poojakira@users.noreply.github.com"}]
-keywords = ["llm", "fine-tuning", "multi-agent", "code-review", "langgraph"]
+keywords = ["llm", "fine-tuning", "multi-agent", "code-review", "langgraph", "security"]
 
 dependencies = [
     "fastapi==0.115.6",
@@ -19,6 +19,9 @@ dependencies = [
     "pydantic-settings==2.7.0",
     "structlog==24.4.0",
     "httpx==0.28.1",
+    # Observability — Fix A3-ABSENT-004
+    "prometheus-fastapi-instrumentator==7.0.0",
+    "scipy==1.14.1",
 ]
 
 [project.optional-dependencies]
@@ -31,17 +34,36 @@ train = [
     "bitsandbytes==0.44.1",
     "peft==0.14.0",
     "accelerate==1.2.1",
+    # Data quality — Fix A4-001
+    "pandera==0.20.4",
+    "pandas==2.2.3",
 ]
 quantize = [
     "autoawq==0.2.7",
     "auto-gptq==0.7.1",
     "llama-cpp-python==0.3.4",
 ]
+security = [
+    # Semantic injection classifier — Fix GAP-A6-002
+    "sentence-transformers==3.3.1",
+]
 dev = [
     "pytest==8.3.4",
     "pytest-asyncio==0.24.0",
     "ruff==0.8.4",
+    # SAST tools — Fix A3-001
+    "bandit[toml]==1.7.10",
+    "pip-audit==2.7.3",
+    # SBOM generation — Fix GATE-15
+    "cyclonedx-bom==4.5.0",
 ]
+
+# NOTE — GATE-3 hash pinning:
+# Generate hash-pinned requirements with:
+#   pip install pip-tools==7.4.1
+#   pip-compile pyproject.toml --generate-hashes --output-file requirements/prod.txt
+# The operator MUST run this and commit requirements/prod.txt before production deploy.
+# Hashes cannot be embedded here without running pip-compile in a clean environment.
 
 [build-system]
 requires = ["hatchling"]
@@ -51,10 +73,16 @@ build-backend = "hatchling.build"
 target-version = "py311"
 line-length = 100
 
+[tool.ruff.lint]
+select = ["E", "F", "W", "S", "B"]  # include bandit-style rules via ruff S codes
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/coderev"]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = []   # no skips — all checks active
