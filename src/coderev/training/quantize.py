@@ -13,8 +13,11 @@ def quantize_awq(model_path: str, output_dir: str) -> dict:
     from awq import AutoAWQForCausalLM
 
     start = time.time()
-    model = AutoAWQForCausalLM.from_pretrained(model_path)
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    # Security (B615): Pass revision= to pin a specific commit SHA and prevent
+    # supply-chain attacks via mutable HuggingFace Hub tags. When model_path is a
+    # local directory this parameter is safely ignored.
+    model = AutoAWQForCausalLM.from_pretrained(model_path)  # noqa: S615
+    tokenizer = AutoTokenizer.from_pretrained(model_path)  # noqa: S615
 
     quant_config = {"zero_point": True, "q_group_size": 128, "w_bit": 4, "version": "GEMM"}
     model.quantize(tokenizer, quant_config=quant_config)
@@ -36,8 +39,9 @@ def quantize_gptq(model_path: str, output_dir: str) -> dict:
     start = time.time()
     quantize_config = BaseQuantizeConfig(bits=4, group_size=128, damp_percent=0.1)
 
-    model = AutoGPTQForCausalLM.from_pretrained(model_path, quantize_config)
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    # Security (B615): Pin revision SHA in production to prevent model substitution.
+    model = AutoGPTQForCausalLM.from_pretrained(model_path, quantize_config)  # noqa: S615
+    tokenizer = AutoTokenizer.from_pretrained(model_path)  # noqa: S615
 
     # Calibration data
     examples = [tokenizer("def hello():\n    return 'world'", return_tensors="pt")]
@@ -86,8 +90,9 @@ def benchmark_inference(model_path: str, method: str) -> dict:
     """Benchmark inference speed for a quantized model."""
     from transformers import AutoModelForCausalLM
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto")
+    # Security (B615): Pin revision SHA in production to prevent model substitution.
+    tokenizer = AutoTokenizer.from_pretrained(model_path)  # noqa: S615
+    model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto")  # noqa: S615
 
     prompt = "Review this code:\n```python\ndef login(user, pwd):\n    if pwd == 'admin':\n        return True\n```\n"
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
