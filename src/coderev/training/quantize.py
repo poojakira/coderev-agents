@@ -120,23 +120,23 @@ def run_comparison(merged_model_path: str, output_dir: str = "./outputs/quantize
     """Run full quantization comparison."""
     results = []
 
-    print("=== AWQ Quantization ===")
+    import logging; logging.info("=== AWQ Quantization ===")
     results.append(quantize_awq(merged_model_path, output_dir))
 
-    print("=== GPTQ Quantization ===")
+    import logging; logging.info("=== GPTQ Quantization ===")
     results.append(quantize_gptq(merged_model_path, output_dir))
 
-    print("=== GGUF Conversion ===")
+    import logging; logging.info("=== GGUF Conversion ===")
     results.append(quantize_gguf(merged_model_path, output_dir))
 
     # Save comparison
     out_path = Path(output_dir) / "comparison.json"
     out_path.write_text(json.dumps(results, indent=2))
-    print(f"\nResults saved to {out_path}")
-    print("\n| Method | Size (MB) | Time (s) |")
-    print("|--------|-----------|----------|")
+    import logging; logging.info(f"\nResults saved to {out_path}")
+    import logging; logging.info("\n| Method | Size (MB) | Time (s) |")
+    import logging; logging.info("|--------|-----------|----------|")
     for r in results:
-        print(f"| {r['method']} | {r['size_mb']} | {r['time_s']} |")
+        import logging; logging.info(f"| {r['method']} | {r['size_mb']} | {r['time_s']} |")
 
     return results
 
