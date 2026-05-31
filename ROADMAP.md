@@ -1,25 +1,43 @@
-# Roadmap
+# Project Roadmap: CodeRev-Agents
 
-This roadmap outlines the future development and strategic direction of this project. It is a living document and may be updated periodically.
+This roadmap outlines the future development and key milestones for the CodeRev-Agents project. It is a living document and may be updated periodically.
 
-## Short-Term Goals (Next 3-6 Months)
+## Phase 1: Core Functionality & Baseline Review (Completed)
 
-*   **Enhance Test Coverage:** Increase unit and integration test coverage to ensure higher code quality and stability.
-*   **Improve Documentation:** Expand and refine existing documentation, including API references, tutorials, and examples.
-*   **Automate CI/CD:** Implement more robust CI/CD pipelines for automated testing, linting, and deployment.
-*   **Community Engagement:** Actively respond to issues and pull requests, and foster a welcoming environment for new contributors.
+-   **Objective**: Develop the fundamental capabilities for AI-powered code review.
+-   **Key Features**:
+    -   Basic code parsing and static analysis.
+    -   Identification of common code smells and vulnerabilities.
+    -   Generation of review comments and suggestions.
+    -   Integration with version control systems (e.g., Git, GitHub).
 
-## Long-Term Goals (6-12+ Months)
+## Phase 2: Advanced Analysis & Contextual Understanding (Current)
 
-*   **Feature Expansion:** Introduce new features based on community feedback and evolving industry standards.
-*   **Performance Optimization:** Identify and address performance bottlenecks to improve efficiency and scalability.
-*   **Security Hardening:** Continuously review and enhance security measures, including regular security audits and vulnerability assessments.
-*   **Ecosystem Integration:** Explore integrations with other relevant tools and platforms to broaden the project's utility.
+-   **Objective**: Enhance CodeRev-Agents with deeper code understanding and more intelligent review capabilities.
+-   **Key Features**:
+    -   Semantic code analysis and understanding of program logic.
+    -   Detection of complex security vulnerabilities (e.g., injection flaws, logic errors).
+    -   Context-aware suggestions based on project guidelines and best practices.
+    -   Support for multiple programming languages.
 
-## Milestones
+## Phase 3: Collaboration & Workflow Integration (Next)
 
-| Milestone | Target Date | Status | Description |
-|---|---|---|---|
-| Initial CI/CD setup | Q3 2026 | In Progress | Establish basic CI/CD pipelines for automated testing and deployment. |
-| Comprehensive Documentation | Q4 2026 | Planned | Develop detailed documentation for all major components and APIs. |
-| First Major Release | Q1 2027 | Planned | Release a stable version with core features and improved performance. |
+-   **Objective**: Optimize CodeRev-Agents for collaborative development workflows and seamless integration into CI/CD pipelines.
+-   **Key Features**:
+    -   Interactive review interface for developers.
+    -   Automated pull request reviews and status checks.
+    -   Customizable review rules and policies.
+    -   Integration with project management tools.
+
+## Phase 4: Research & Autonomous Refactoring (Future)
+
+-   **Objective**: Explore cutting-edge AI research for autonomous code improvement and advanced security hardening.
+-   **Key Features**:
+    -   AI-driven code refactoring and optimization.
+    -   Automated vulnerability patching and remediation.
+    -   Learning from human feedback to improve review quality.
+    -   Research into formal verification techniques for code security.
+
+## Disclaimer
+
+This roadmap is subject to change based on research findings, user feedback, and evolving project priorities.
