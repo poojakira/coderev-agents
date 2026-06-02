@@ -91,7 +91,7 @@ def train():
 
     # Load data
     dataset = load_training_data()
-    import logging; logging.info(f"Training on {len(dataset)} examples")
+    print(f"Training on {len(dataset)} examples")
 
     # Training config
     training_args = SFTConfig(
@@ -134,7 +134,7 @@ def train():
 
     # Save config for reproducibility
     (output_path / "train_config.json").write_text(json.dumps(TRAIN_CONFIG, indent=2))
-    import logging; logging.info(f"Model saved to {output_path}")
+    print(f"Model saved to {output_path}")
 
 
 if __name__ == "__main__":

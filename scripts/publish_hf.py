@@ -20,7 +20,7 @@ def publish_adapter(adapter_path: str = "./outputs/qlora-r32/final"):
         repo_id=repo_id,
         commit_message="Upload QLoRA adapter (r=32, alpha=64)",
     )
-    import logging; logging.info(f"Adapter published to https://huggingface.co/{repo_id}")
+    print(f"Adapter published to https://huggingface.co/{repo_id}")
 
 
 def publish_quantized(model_path: str = "./outputs/quantized/awq"):
@@ -36,7 +36,7 @@ def publish_quantized(model_path: str = "./outputs/quantized/awq"):
         repo_id=repo_id,
         commit_message="Upload AWQ 4-bit quantized model",
     )
-    import logging; logging.info(f"Quantized model published to https://huggingface.co/{repo_id}")
+    print(f"Quantized model published to https://huggingface.co/{repo_id}")
 
 
 if __name__ == "__main__":
