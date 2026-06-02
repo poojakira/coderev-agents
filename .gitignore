@@ -10,3 +10,6 @@ wandb/
 .pytest_cache/
 *.gguf
 *.safetensors
+sbom.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
