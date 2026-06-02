@@ -5,7 +5,7 @@ from pathlib import Path
 
 import wandb
 from datasets import load_dataset
-from trl import SFTTrainer, SFTConfig
+from trl import SFTConfig, SFTTrainer
 from unsloth import FastLanguageModel
 
 from coderev.config import Settings

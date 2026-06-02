@@ -7,13 +7,13 @@ only executes after ALL routed agents complete (skipped agents don't block).
 
 from typing import TypedDict
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
 
 from coderev.agents.nodes import (
+    complexity_node,
     orchestrator_node,
     security_node,
     style_node,
-    complexity_node,
     summarizer_node,
 )
 

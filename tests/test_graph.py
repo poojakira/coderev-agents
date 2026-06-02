@@ -1,6 +1,6 @@
 """Tests for the multi-agent code review graph."""
 
-from coderev.agents.graph import route_after_orchestrator, ReviewState
+from coderev.agents.graph import ReviewState, route_after_orchestrator
 
 
 def test_route_all_agents_for_large_diff():

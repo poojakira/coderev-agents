@@ -1,7 +1,5 @@
 """Publish fine-tuned model and adapter to HuggingFace Hub."""
 
-from pathlib import Path
-
 from huggingface_hub import HfApi, create_repo
 
 from coderev.config import Settings
@@ -41,6 +39,7 @@ def publish_quantized(model_path: str = "./outputs/quantized/awq"):
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) > 1 and sys.argv[1] == "--quantized":
         publish_quantized()
     else:

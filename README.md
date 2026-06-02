@@ -1,72 +1,53 @@
-# CodeRev Agents
+# CodeRev Agents - LLM-Assisted Security Code Review
 
-Multi-agent code review prototype with LangGraph orchestration and explicit prompt-injection trust boundaries for untrusted diffs.
+[![CI](https://github.com/poojakira/coderev-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/poojakira/coderev-agents/actions)
+![Python 3.12](https://img.shields.io/badge/Python-3.12-blue)
+![Security](https://img.shields.io/badge/Security-Prototype-orange)
 
-This repository is not presented as a trained model benchmark. Training and quantization scripts are included as reproducible scaffolding, but no quality, F1, speed, VRAM, or W&B metrics are claimed unless backed by published artifacts.
+CodeRev Agents is an LLM-powered security code review prototype that integrates traditional static analysis (SAST) with the reasoning capabilities of Large Language Models.
 
-## Security Architecture
+## 🚀 How it Works
+
+1. **Static Analysis**: The system runs `Bandit` (and optionally `Semgrep`) on the incoming diff.
+2. **Agentic Reasoning**: Specialized LLM agents (LangGraph orchestrated) analyze the static tool findings alongside the code context.
+3. **Risk Summarization**: Agents flag complex vulnerabilities that static tools might miss (e.g., logic flaws, authorization bypass) and provide a prioritized risk summary.
+4. **Trust Boundaries**: All untrusted diffs are isolated and scanned for prompt injection before being processed by the agents.
+
+## 🏗️ Architecture
 
 ```mermaid
-flowchart LR
-  A[Untrusted git diff] --> B[Trust boundary]
-  B --> C[SHA-256 digest]
-  B --> D[Line-numbered inert rendering]
-  B --> E[Prompt-injection marker scan]
-  B --> F[Security-sensitive diff routing]
-  E --> G{Security agent required?}
-  F --> G
-  G --> H[Security reviewer]
-  B --> I[Style reviewer]
-  B --> J[Complexity reviewer]
-  H --> K[Summarizer]
-  I --> K
-  J --> K
+graph TD
+    Diff[Incoming Git Diff] -->|Trust Boundary| Guard[Injection Guard]
+    Guard -->|Scan| Bandit[Bandit SAST]
+    Bandit -->|Findings| Agent[Security Analysis Agent]
+    Guard -->|Context| Agent
+    Agent -->|Prioritized Report| Summary[Risk Summarizer]
 ```
 
-## Implemented Controls
+## 🛡️ Security Features
 
-| Control | Implementation |
-|---|---|
-| Untrusted diff isolation | `build_diff_envelope()` wraps the diff with hash, truncation flag, and line-numbered `BEGIN_UNTRUSTED_DIFF` / `END_UNTRUSTED_DIFF` boundaries |
-| Prompt-injection detection | Detects obvious role/system-instruction attempts embedded in code comments or strings |
-| Security routing | Small diffs still route to security review if they touch auth, JWT, secrets, deserialization, subprocess, SQL, SSRF, paths, or prompt-injection markers |
-| Prompt hardening | Reviewer system prompts explicitly treat diff text as untrusted data, not instructions |
-| Summarizer hardening | Aggregated agent outputs are treated as untrusted analysis and cannot suppress findings |
+- **SAST Integration**: Leverages Bandit to catch "low-hanging fruit" (e.g., `eval`, `os.system`) so the LLM can focus on higher-level logic.
+- **Prompt Injection Defense**: Detects malicious instructions hidden in code comments or strings.
+- **Risk Prioritization**: Categorizes findings into CRITICAL, HIGH, and MEDIUM based on both static rules and LLM reasoning.
+- **Sample Red-Teaming**: Includes a `sample_repo/` with known vulnerabilities for benchmarking and CI verification.
 
-## Quick Start
+## 💻 Quick Start
 
+### Installation
 ```bash
 pip install -e ".[dev]"
-python -m pytest tests -q
-ruff check src tests
 ```
 
-To run live LLM-backed review:
-
+### Run Review on Sample Repo
 ```bash
-export CODEREV_LLM_API_KEY=sk-your-key
-uvicorn coderev.api.main:app --reload
+# Runs a security review on the vulnerable sample code
+python scripts/review_repo.py sample_repo/
 ```
 
-## Boundary
+## 📜 Documentation
 
-This is an agentic code-review security prototype. It does not prove review quality, model training quality, or production readiness. Missing production controls include persistent job storage, human approval workflow, audit logging, GitHub App permissions, sandboxed tool execution, and calibrated reviewer benchmarks.
+- [SECURITY.md](./SECURITY.md) - Disclosure policy and security focus.
+- [THREAT_MODEL.md](./THREAT_MODEL.md) - Agentic security threats and mitigations.
 
-## Project Structure
-
-```text
-src/coderev/
-  agents/
-    graph.py            # LangGraph StateGraph routing
-    nodes.py            # Reviewer nodes with trust-boundary prompts
-    trust_boundary.py   # Diff hashing, rendering, injection markers, security routing
-  api/main.py           # FastAPI review endpoint
-  training/             # Optional QLoRA/quantization scaffolding
-tests/
-  test_graph.py
-  test_trust_boundary.py
-```
-
-## License
-
-MIT
+---
+**Status**: Supporting Project. Prototype for LLM-assisted security automation.
